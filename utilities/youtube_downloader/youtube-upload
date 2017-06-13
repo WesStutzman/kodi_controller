@@ -1,0 +1,4 @@
+#!/bin/bash
+
+./youtube-download $1
+./kodi-upload

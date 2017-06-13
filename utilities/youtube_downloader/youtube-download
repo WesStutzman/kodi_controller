@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+# Working files for python
+
+import os
+import sys
+from subprocess import call
+
+def parse_line(input_string):
+  return_list = []
+  item_builder = ""
+  for i in range(0, len(input_string)):
+    if input_string[i] == '\n':
+      return_list.append(item_builder)
+      item_builder = ""
+    else:
+      item_builder += input_string[i]
+  return return_list
+if __name__ == "__main__":
+  file_location = "/mnt/nas_music/youtube_downloads"
+
+  if len(sys.argv) == 3:
+    file_location = sys.argv[2]
+
+  if file_location.endswith("/"):
+    file_location = file_location[0:len(file_location) - 1]
+
+  file_location = file_location + "/%(title)s.%(ext)s"
+  if sys.argv[1].endswith(".txt"):
+    s = open(sys.argv[1]).read()
+    list_holder = parse_line(s)
+    for i in range(0, len(list_holder)):
+      print(list_holder[i])
+      script = "youtube-dl --restrict-filenames -o '%s' --extrace-audio --audio-format mp3 %s" % (file_location, list_holder[i])
+      # script = "youtube-dl --restrict-filenames -o \"" + file_location + "\" --extract-audio --audio-format mp3 " + list_holder[i]
+      call(script, shell=True)
+  else:
+    # script = "youtube-dl --restrict-filenames -o \"" + file_location + "\" --extract-audio --audio-format mp3 " + sys.argv[1]
+    script = "youtube-dl --restrict-filenames -o '%s' --extract-audio --audio-format mp3 %s" % (file_location, sys.argv[1])
+    print script
+    call(script, shell=True)

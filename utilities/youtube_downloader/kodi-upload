@@ -1,0 +1,71 @@
+#!/usr/bin/env python2.7
+# Wesley Stutzman
+# Recusivly upload songs into a database along with there location
+
+import os
+from sqlconnection import sqlconnection
+
+def get_path_id(mysql, path_name):
+  return mysql.execute_script("SELECT LOCATION_ID FROM SONG_LOCATION WHERE PATH LIKE('%s')" % (path_name))
+
+# Recursivly sort through the filesystem and upload any file ending in .mp3 into the database
+# Create a reverse link from all mp3 files to parent directories, this eleminates any redundant data in the DB
+def recursive_lookup(mysql, directory, tail):
+  # Get all the files inside of the directory and sort them, next loop through all items 
+  dir_list = sorted(os.listdir(directory))
+
+  for result in dir_list:
+    # Check the sql database if the path exists all ready
+    # If the result is empty make sure to set sql_result to None (avoids major problems)
+    sql_result = get_path_id(mysql, result)
+    if len(sql_result) is int(0):
+      sql_result = None
+
+    # Chck if the path is a directory
+    if os.path.isdir(os.path.join(directory, result)):
+      # If the file does not exist all ready insert it into the database
+      if sql_result is None:
+        mysql.insert_script("INSERT INTO SONG_LOCATION(PATH, TAIL)VALUE('%s', %s)" % (result, tail))
+        sql_result = get_path_id(mysql, result)
+
+      #### Move inside the new directory and continue the recursion ###########
+      recursive_lookup(mysql, os.path.join(directory, result), sql_result[0][0])
+
+    # If the file is an mp3
+    if result.endswith(".mp3"):
+      # Check if the file does not all ready exist inside the database
+      if sql_result is None:
+        mysql.insert_script("INSERT INTO SONG_LOCATION(PATH, TAIL)VALUE('%s', %s)" % (result, tail))
+      # Select the tail of the song location
+      sql_result = mysql.execute_script("SELECT TAIL FROM SONG_LOCATION WHERE PATH LIKE('%s')" % (result))
+
+      # Set to zero if there was no results
+      if len(sql_result) is int(0):
+        sql_result = None
+
+      # If the results are None then set value to NULL for inserting into database
+      if sql_result is None:
+        sql_result = "NULL"
+      else:
+        sql_result = sql_result[0][0]
+
+      # If the item you are currently looking at does not match the tail in the DB
+      #  it was probably changed so update the tail with the new file location
+      #  This will update any files that where moved into new directories
+      if sql_result is not tail:
+        mysql.insert_script("UPDATE SONG_LOCATION SET TAIL = %s WHERE PATH LIKE('%s')" % (tail, result))
+        # Check if the song location is inside of song_info and update it as well
+  
+# Check the database for any items inside song_location that is not currently inside of song_info
+# For all items inside of this list insert the file location and raw file name into song_info
+def update_song_info(mysql):
+  missing_items = mysql.execute_script("SELECT L.LOCATION_ID, L.PATH FROM SONG_LOCATION AS L LEFT JOIN SONG_INFO AS I ON L.LOCATION_ID = I.LOCATION_ID WHERE I.LOCATION_ID IS NULL AND L.PATH LIKE('%.mp3')")
+  for item in missing_items:
+    mysql.insert_script("INSERT INTO SONG_INFO(LOCATION_ID, NAME)VALUE(%s, '%s')" % (item[0], item[1]))
+
+if __name__ == "__main__":
+  mysql = sqlconnection("192.168.1.6", "4624", "kodi_controller", "tempP@$$", "KODI")
+  # print("Locating all file locations")
+  recursive_lookup(mysql, "/mnt/nas_music", "NULL") 
+  # print("Updating all song info")
+  update_song_info(mysql)
