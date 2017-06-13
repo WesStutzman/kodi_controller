@@ -64,7 +64,7 @@ def update_song_info(mysql):
     mysql.insert_script("INSERT INTO SONG_INFO(LOCATION_ID, NAME)VALUE(%s, '%s')" % (item[0], item[1]))
 
 if __name__ == "__main__":
-  mysql = sqlconnection("192.168.1.6", "4624", "kodi_controller", "tempP@$$", "KODI")
+  mysql = sqlconnection("<server ip>", "<port number>", "kodi_controller", "<user password>", "KODI")
   # print("Locating all file locations")
   recursive_lookup(mysql, "/mnt/nas_music", "NULL") 
   # print("Updating all song info")
